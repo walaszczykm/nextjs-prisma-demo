@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
 import type { NextPage, GetServerSidePropsResult } from "next";
+import { PrismaClient } from "@prisma/client";
 import {
   Container,
   Flex,
@@ -22,17 +22,14 @@ type HomePageProps = {
   initialPosts: Post[];
 };
 
-export function getServerSideProps(): GetServerSidePropsResult<HomePageProps> {
+export async function getServerSideProps(): Promise<
+  GetServerSidePropsResult<HomePageProps>
+> {
+  const prisma = new PrismaClient();
+  const posts = await prisma.post.findMany();
   return {
     props: {
-      initialPosts: [
-        {
-          id: uuid(),
-          title: "Hello World",
-          author: "john.doe@example.com",
-          body: "Lorem ipsum dolor sit amet",
-        },
-      ],
+      initialPosts: posts,
     },
   };
 }
@@ -42,15 +39,21 @@ const Home: NextPage<HomePageProps> = ({ initialPosts }) => {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [body, setBody] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  function addNewPost() {
-    setPosts((prevPosts) => [
-      ...prevPosts,
-      { id: uuid(), title, author, body },
-    ]);
+  async function addNewPost() {
+    setIsLoading(true);
+    const resp = await fetch("/api/posts", {
+      method: "POST",
+      body: JSON.stringify({ title, author, body }),
+    });
+    const post = await resp.json();
+
     setTitle("");
     setAuthor("");
     setBody("");
+    setPosts((prevPosts) => [...prevPosts, , post]);
+    setIsLoading(false);
   }
 
   return (
@@ -77,6 +80,7 @@ const Home: NextPage<HomePageProps> = ({ initialPosts }) => {
           />
           <Button
             disabled={!title || !author || !body}
+            isLoading={isLoading}
             onClick={() => addNewPost()}
           >
             Add new
